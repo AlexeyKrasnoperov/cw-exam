@@ -32,6 +32,50 @@ fn query_highest_bid_no_bids() {
 
     let resp = contract.query_highest_bid(&app).unwrap();
 
+    assert_eq!(resp.address, owner.to_string());
+    assert_eq!(resp.bid, Coin::new(0, ATOM));
+}
+
+#[test]
+fn query_address_bid_no_bids() {
+    let mut app = App::default();
+    let owner = Addr::unchecked("owner");
+
+    let contract_id = app.store_code(bidding_contract());
+
+    let contract = BiddingContract::instantiate(
+        &mut app,
+        contract_id,
+        &owner,
+        None,
+        "Bidding Contract",
+    )
+    .unwrap();
+
+    let resp = contract.query_address_bid(&app, owner.to_string()).unwrap();
+
+    assert_eq!(resp.bid, Coin::new(0, ATOM));
+}
+
+#[test]
+fn query_winner_no_bids() {
+    let mut app = App::default();
+    let owner = Addr::unchecked("owner");
+
+    let contract_id = app.store_code(bidding_contract());
+
+    let contract = BiddingContract::instantiate(
+        &mut app,
+        contract_id,
+        &owner,
+        None,
+        "Bidding Contract",
+    )
+    .unwrap();
+
+    let resp = contract.query_winner(&app).unwrap();
+
+    assert_eq!(resp.address, "");
     assert_eq!(resp.bid, Coin::new(0, ATOM));
 }
 

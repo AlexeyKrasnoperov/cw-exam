@@ -14,4 +14,7 @@ pub enum ContractError {
 
     #[error("Incorrect Bid - the bid should be done using the native token")]
     IncorrectBid {},
+
+    #[error("The bidding is closed")]
+    BiddingClosed {},
 }

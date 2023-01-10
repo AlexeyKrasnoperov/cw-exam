@@ -1,5 +1,5 @@
 use cosmwasm_std::{Coin, DepsMut, MessageInfo, Response, StdResult};
-use cw2::{set_contract_version};
+use cw2::set_contract_version;
 
 use crate::{
     msg::InstantiateMsg,
@@ -8,7 +8,7 @@ use crate::{
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const HIGHEST_BID_KEY : &str = "highest_bid";
+const HIGHEST_BID_KEY: &str = "highest_bid";
 
 const ATOM: &str = "atom";
 
@@ -34,12 +34,12 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 }
 
 pub mod query {
-    use cosmwasm_std::{Deps, StdResult};
+    use cosmwasm_std::{Deps, StdResult, Coin, Addr};
 
     use crate::msg::{AddressBidResp, HighestBidResp, WinnerResp};
     use crate::state::STATE;
 
-    use super::HIGHEST_BID_KEY;
+    use super::{HIGHEST_BID_KEY, ATOM};
 
     pub fn highest_bid(deps: Deps) -> StdResult<HighestBidResp> {
         let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
@@ -51,30 +51,43 @@ pub mod query {
     }
 
     pub fn address_bid(deps: Deps, address: String) -> StdResult<AddressBidResp> {
-        let address_bid_info = STATE.load(deps.storage, address.to_string())?;
-        Ok(AddressBidResp {
-            bid: address_bid_info.bid,
-        })
+        let address_bid_info = STATE.may_load(deps.storage, address.to_string())?;
+
+        if address_bid_info.is_some() {
+            Ok(AddressBidResp {
+                bid: address_bid_info.unwrap().bid,
+            })
+        } else {
+            Ok(AddressBidResp {
+                bid: Coin::new(0, ATOM),
+            })
+        }
     }
 
     pub fn winner(deps: Deps) -> StdResult<WinnerResp> {
-        let winner_info = STATE.load(deps.storage, "winner".to_string())?;
+        let winner_info = STATE.may_load(deps.storage, "winner".to_string())?;
 
-        Ok(WinnerResp {
-            address: winner_info.address,
-            bid: winner_info.bid,
-        })
+        if winner_info.is_some() {
+            let winner_info = winner_info.unwrap();
+            Ok(WinnerResp {
+                address: winner_info.address,
+                bid: winner_info.bid,
+            })
+        } else {
+            Ok(WinnerResp {
+                address: Addr::unchecked(""),
+                bid: Coin::new(0, ATOM),
+            })
+        }
     }
 }
 
 pub mod exec {
-    use cosmwasm_std::{
-        BankMsg, DepsMut, Env, MessageInfo, Response, Coin,
-    };
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response};
 
     use crate::{
         error::ContractError,
-        state::{OWNER, STATE, State},
+        state::{State, OWNER, STATE},
     };
 
     use super::{ATOM, HIGHEST_BID_KEY};
@@ -82,6 +95,7 @@ pub mod exec {
     pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
         // TODO: Raise error in case if bidder == owner
         // TODO: Send comission to the owner
+        // TODO: Allow highest bidder to increase their bid
 
         let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
         let mut resp = Response::default();
@@ -104,7 +118,7 @@ pub mod exec {
                         bid: Coin::new(total_address_bid.u128(), ATOM),
                     },
                 )?;
-            
+
                 STATE.save(
                     deps.storage,
                     HIGHEST_BID_KEY.to_string(),
