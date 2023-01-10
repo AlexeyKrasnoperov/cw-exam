@@ -11,4 +11,7 @@ pub enum ContractError {
 
     #[error("Insufficient Bid - the bid {bid} is lower than the highest bid {highest_bid}")]
     InsufficientBid { bid: String, highest_bid: String },
+
+    #[error("Incorrect Bid - the bid should be done using the native token")]
+    IncorrectBid {},
 }

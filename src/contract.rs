@@ -17,19 +17,10 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 
     STATE.save(
         deps.storage,
-        info.sender.to_string(),
-        &State {
-            address: info.sender.clone(),
-            bid: Coin::new(10, ATOM),
-        },
-    )?;
-
-    STATE.save(
-        deps.storage,
         HIGHEST_BID_KEY.to_string(),
         &State {
             address: info.sender.clone(),
-            bid: Coin::new(10, ATOM),
+            bid: Coin::new(0, ATOM),
         },
     )?;
 
@@ -89,6 +80,9 @@ pub mod exec {
     use super::{ATOM, HIGHEST_BID_KEY};
 
     pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+        // TODO: Raise error in case if bidder == owner
+        // TODO: Send comission to the owner
+
         let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
         let mut resp = Response::default();
 
@@ -101,7 +95,7 @@ pub mod exec {
                 total_address_bid += address_bid_info.unwrap().bid.amount
             }
 
-            if total_address_bid >= highest_bid_info.bid.amount {
+            if total_address_bid > highest_bid_info.bid.amount {
                 STATE.save(
                     deps.storage,
                     info.sender.to_string(),
@@ -121,17 +115,13 @@ pub mod exec {
                 )?;
             } else {
                 return Err(ContractError::InsufficientBid {
-                    bid: native_coin_bid.unwrap().amount.to_string(),
+                    bid: total_address_bid.to_string(),
                     highest_bid: highest_bid_info.bid.amount.to_string(),
                 }
                 .into());
             }
         } else {
-            return Err(ContractError::InsufficientBid {
-                bid: String::from("0"),
-                highest_bid: highest_bid_info.bid.amount.to_string(),
-            }
-            .into());
+            return Err(ContractError::IncorrectBid {}.into());
         }
 
         resp = resp

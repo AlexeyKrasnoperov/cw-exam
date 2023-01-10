@@ -25,7 +25,6 @@ impl BiddingContract {
         sender: &Addr,
         admin: Option<&Addr>,
         label: &str,
-        bid: Coin,
     ) -> StdResult<BiddingContract> {
         app.instantiate_contract(
             code_id,
