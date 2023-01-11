@@ -11,7 +11,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const HIGHEST_BID_KEY: &str = "highest_bid";
 const WINNER_KEY: &str = "winner";
 
-const COMMISSION: f64 = 0.10;
+const COMMISSION: u128 = 10;
 
 const ATOM: &str = "atom";
 
@@ -122,7 +122,7 @@ pub mod exec {
 
             if total_address_bid > highest_bid_info.bid.amount {
                 let commission = Coin::new(
-                    (native_coin_bid.amount.u128() as f64 * COMMISSION) as u128,
+                    (native_coin_bid.amount.u128() * COMMISSION / 100) as u128,
                     native_coin_bid.clone().denom,
                 );
 
