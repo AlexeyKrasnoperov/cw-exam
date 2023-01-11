@@ -15,6 +15,15 @@ pub enum ContractError {
     #[error("Incorrect Bid - the bid should be done using the native token")]
     IncorrectBid {},
 
-    #[error("The bidding is closed")]
-    BiddingClosed {},
+    #[error("The bidding is already closed")]
+    BiddingAlreadyClosed {},
+
+    #[error("The bidding is not yet closed")]
+    BiddingNotClosed {},
+
+    #[error("No bid found for the address {address}")]
+    NoBidFound { address: String },
+
+    #[error("Winner cannot retract")]
+    WinnerCannotRetract {},
 }

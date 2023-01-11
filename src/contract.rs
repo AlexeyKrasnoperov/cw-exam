@@ -9,6 +9,7 @@ use crate::{
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const HIGHEST_BID_KEY: &str = "highest_bid";
+const WINNER_KEY: &str = "winner";
 
 const ATOM: &str = "atom";
 
@@ -34,12 +35,12 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
 }
 
 pub mod query {
-    use cosmwasm_std::{Deps, StdResult, Coin, Addr};
+    use cosmwasm_std::{Addr, Coin, Deps, StdResult};
 
     use crate::msg::{AddressBidResp, HighestBidResp, WinnerResp};
     use crate::state::STATE;
 
-    use super::{HIGHEST_BID_KEY, ATOM};
+    use super::{ATOM, HIGHEST_BID_KEY};
 
     pub fn highest_bid(deps: Deps) -> StdResult<HighestBidResp> {
         let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
@@ -90,12 +91,23 @@ pub mod exec {
         state::{State, OWNER, STATE},
     };
 
-    use super::{ATOM, HIGHEST_BID_KEY};
+    use super::{ATOM, HIGHEST_BID_KEY, WINNER_KEY};
 
     pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-        // TODO: Raise error in case if bidder == owner
         // TODO: Send comission to the owner
         // TODO: Allow highest bidder to increase their bid
+
+        let owner = OWNER.load(deps.storage)?;
+        if info.sender == owner {
+            return Err(ContractError::Unauthorized {
+                owner: owner.into(),
+            });
+        }
+
+        let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
+        if winner.is_some() {
+            return Err(ContractError::BiddingAlreadyClosed {});
+        }
 
         let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
         let mut resp = Response::default();
@@ -146,7 +158,7 @@ pub mod exec {
         Ok(resp)
     }
 
-    pub fn close(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+    pub fn close(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
         let owner = OWNER.load(deps.storage)?;
 
         if info.sender != owner {
@@ -155,10 +167,25 @@ pub mod exec {
             });
         }
 
-        let funds = deps.querier.query_all_balances(env.contract.address)?;
+        let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
+        if winner.is_some() {
+            return Err(ContractError::BiddingAlreadyClosed {});
+        }
+
+        let highest_bid_info = STATE.load(deps.storage, HIGHEST_BID_KEY.to_string())?;
+
+        STATE.save(
+            deps.storage,
+            WINNER_KEY.to_string(),
+            &State {
+                address: highest_bid_info.address,
+                bid: highest_bid_info.bid.clone(),
+            },
+        )?;
+
         let bank_msg = BankMsg::Send {
             to_address: owner.to_string(),
-            amount: funds,
+            amount: [highest_bid_info.bid.clone()].to_vec(),
         };
 
         let resp = Response::new()
@@ -169,26 +196,34 @@ pub mod exec {
         Ok(resp)
     }
 
-    pub fn retract(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-        let owner = OWNER.load(deps.storage)?;
-
-        if info.sender != owner {
-            return Err(ContractError::Unauthorized {
-                owner: owner.into(),
-            });
+    pub fn retract(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+        let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
+        if winner.is_none() {
+            return Err(ContractError::BiddingNotClosed {});
         }
 
-        let funds = deps.querier.query_all_balances(env.contract.address)?;
-        let bank_msg = BankMsg::Send {
-            to_address: owner.to_string(),
-            amount: funds,
-        };
+        if winner.unwrap().address == info.sender {
+            return Err(ContractError::WinnerCannotRetract {});
+        }
 
-        let resp = Response::new()
-            .add_message(bank_msg)
-            .add_attribute("action", "retract")
-            .add_attribute("sender", info.sender.as_str());
+        let address_bid_info = STATE.may_load(deps.storage, info.sender.to_string())?;
 
-        Ok(resp)
+        if address_bid_info.is_some() {
+            let bank_msg = BankMsg::Send {
+                to_address: info.sender.to_string(),
+                amount: [address_bid_info.unwrap().bid].to_vec(),
+            };
+
+            let resp = Response::new()
+                .add_message(bank_msg)
+                .add_attribute("action", "retract")
+                .add_attribute("sender", info.sender.as_str());
+
+            Ok(resp)
+        } else {
+            return Err(ContractError::NoBidFound {
+                address: info.sender.to_string(),
+            });
+        }
     }
 }
