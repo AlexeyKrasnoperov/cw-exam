@@ -194,7 +194,7 @@ pub mod exec {
         Ok(resp)
     }
 
-    pub fn retract(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+    pub fn retract(deps: DepsMut, _env: Env, info: MessageInfo, receiver: Option<String>) -> Result<Response, ContractError> {
         let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
         if winner.is_none() {
             return Err(ContractError::BiddingNotClosed {});
@@ -207,8 +207,9 @@ pub mod exec {
         let address_bid_info = STATE.may_load(deps.storage, info.sender.to_string())?;
 
         if address_bid_info.is_some() {
+            let receiver = receiver.unwrap_or(info.sender.to_string());
             let bank_msg = BankMsg::Send {
-                to_address: info.sender.to_string(),
+                to_address: receiver,
                 amount: [address_bid_info.unwrap().bid].to_vec(),
             };
 

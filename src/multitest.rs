@@ -58,8 +58,8 @@ impl BiddingContract {
         Ok(())
     }
 
-    pub fn retract(&self, app: &mut App, sender: &Addr) -> Result<(), ContractError> {
-        app.execute_contract(sender.clone(), self.0.clone(), &ExecMsg::Retract {}, &[])
+    pub fn retract(&self, app: &mut App, sender: &Addr, receiver: Option<String>) -> Result<(), ContractError> {
+        app.execute_contract(sender.clone(), self.0.clone(), &ExecMsg::Retract { receiver }, &[])
             .map_err(|err| err.downcast::<ContractError>().unwrap())?;
 
         Ok(())

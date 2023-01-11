@@ -264,6 +264,7 @@ fn successul_scenario() {
     let sender1 = Addr::unchecked("sender1");
     let sender2 = Addr::unchecked("sender2");
     let sender3 = Addr::unchecked("sender3");
+    let sender4 = Addr::unchecked("sender4");
 
     let mut app = App::new(|router, _api, storage| {
         router
@@ -274,6 +275,11 @@ fn successul_scenario() {
         router
             .bank
             .init_balance(storage, &sender2, coins(10, ATOM))
+            .unwrap();
+
+        router
+            .bank
+            .init_balance(storage, &sender3, coins(10, ATOM))
             .unwrap();
     });
 
@@ -288,6 +294,7 @@ fn successul_scenario() {
     )
     .unwrap();
 
+    contract.bid(&mut app, &sender3, &[Coin::new(1, ATOM)]).unwrap();
     contract.bid(&mut app, &sender1, &[Coin::new(5, ATOM)]).unwrap();
     contract.bid(&mut app, &sender2, &[Coin::new(6, ATOM)]).unwrap();
     contract.bid(&mut app, &sender1, &[Coin::new(2, ATOM)]).unwrap();
@@ -315,21 +322,24 @@ fn successul_scenario() {
 
     assert_eq!(app.wrap().query_all_balances(owner.clone()).unwrap(), &[Coin::new(7, ATOM)]);
     
-    let err = contract.retract(&mut app, &sender1).unwrap_err();
+    let err = contract.retract(&mut app, &sender1, None).unwrap_err();
     assert_eq!(
         err,
         ContractError::WinnerCannotRetract {}
     );
 
-    contract.retract(&mut app, &sender2).unwrap();
+    contract.retract(&mut app, &sender2, None).unwrap();
+    assert_eq!(app.wrap().query_all_balances(sender2.clone()).unwrap(), &[Coin::new(10, ATOM)]);
 
-    let err = contract.retract(&mut app, &sender3).unwrap_err();
+    contract.retract(&mut app, &sender3, Some(sender4.to_string())).unwrap();
+    assert_eq!(app.wrap().query_all_balances(sender4.clone()).unwrap(), &[Coin::new(1, ATOM)]);
+
+    let err = contract.retract(&mut app, &sender4, None).unwrap_err();
     assert_eq!(
         err,
-        ContractError::NoBidFound { address: sender3.to_string() }
+        ContractError::NoBidFound { address: sender4.to_string() }
     );
 
-    assert_eq!(app.wrap().query_all_balances(sender2.clone()).unwrap(), &[Coin::new(10, ATOM)]);
 }
 
 #[test]
@@ -383,6 +393,5 @@ fn owner_cannot_bid() {
     );
 }
 
-// TODO: retract to a friend
 // TODO: commissions
 // TODO: Custom owner

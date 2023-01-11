@@ -45,6 +45,6 @@ pub fn execute(
     match msg {
         Bid {} => contract::exec::bid(deps, env, info).map_err(ContractError::from),
         Close {} => contract::exec::close(deps, env, info).map_err(ContractError::from),
-        Retract {} => contract::exec::retract(deps, env, info).map_err(ContractError::from),
+        Retract { receiver } => contract::exec::retract(deps, env, info, receiver).map_err(ContractError::from),
     }
 }

@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Addr};
+use cosmwasm_std::{Addr, Coin};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -19,9 +19,9 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub enum ExecMsg {
-    Bid{},
-    Close{},
-    Retract{},
+    Bid {},
+    Close {},
+    Retract { receiver: Option<String> },
 }
 
 #[cw_serde]
