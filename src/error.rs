@@ -9,6 +9,9 @@ pub enum ContractError {
     #[error("Unauthorized - only {owner} can call it")]
     Unauthorized { owner: String },
 
+    #[error("Owner cannot bid")]
+    OwnerCannotBid {},
+
     #[error("Insufficient Bid - the bid {bid} is lower than the highest bid {highest_bid}")]
     InsufficientBid { bid: String, highest_bid: String },
 

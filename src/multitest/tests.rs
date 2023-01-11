@@ -358,7 +358,31 @@ fn unauthorized_close() {
     );
 }
 
+#[test]
+fn owner_cannot_bid() {
+    let mut app = App::default();
+
+    let contract_id = app.store_code(bidding_contract());
+
+    let owner = Addr::unchecked("owner");
+
+    let contract = BiddingContract::instantiate(
+        &mut app,
+        contract_id,
+        &owner,
+        None,
+        "Bidding Contract",
+    )
+    .unwrap();
+
+    let err = contract.bid(&mut app, &owner, &[]).unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::OwnerCannotBid {}
+    );
+}
+
 // TODO: retract to a friend
 // TODO: commissions
 // TODO: Custom owner
-// TODO: owner cannot bid

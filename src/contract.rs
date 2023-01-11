@@ -99,9 +99,7 @@ pub mod exec {
 
         let owner = OWNER.load(deps.storage)?;
         if info.sender == owner {
-            return Err(ContractError::Unauthorized {
-                owner: owner.into(),
-            });
+            return Err(ContractError::OwnerCannotBid {});
         }
 
         let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
