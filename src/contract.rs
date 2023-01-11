@@ -11,6 +11,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const HIGHEST_BID_KEY: &str = "highest_bid";
 const WINNER_KEY: &str = "winner";
 
+const COMMISSION: f64 = 0.10;
+
 const ATOM: &str = "atom";
 
 pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> StdResult<Response> {
@@ -22,6 +24,7 @@ pub fn instantiate(deps: DepsMut, info: MessageInfo, msg: InstantiateMsg) -> Std
         &State {
             address: info.sender.clone(),
             bid: Coin::new(0, ATOM),
+            commission: Coin::new(0, ATOM),
         },
     )?;
 
@@ -91,12 +94,9 @@ pub mod exec {
         state::{State, OWNER, STATE},
     };
 
-    use super::{ATOM, HIGHEST_BID_KEY, WINNER_KEY};
+    use super::{ATOM, COMMISSION, HIGHEST_BID_KEY, WINNER_KEY};
 
     pub fn bid(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-        // TODO: Send comission to the owner
-        // TODO: Allow highest bidder to increase their bid
-
         let owner = OWNER.load(deps.storage)?;
         if info.sender == owner {
             return Err(ContractError::OwnerCannotBid {});
@@ -113,19 +113,31 @@ pub mod exec {
         let native_coin_bid = info.funds.iter().find(|coin| coin.denom == ATOM);
 
         if native_coin_bid.is_some() {
+            let native_coin_bid = native_coin_bid.unwrap();
             let address_bid_info = STATE.may_load(deps.storage, info.sender.to_string())?;
-            let mut total_address_bid = native_coin_bid.unwrap().amount;
+            let mut total_address_bid = native_coin_bid.amount;
             if address_bid_info.is_some() {
-                total_address_bid += address_bid_info.unwrap().bid.amount
+                total_address_bid += address_bid_info.clone().unwrap().bid.amount
             }
 
             if total_address_bid > highest_bid_info.bid.amount {
+                let commission = Coin::new(
+                    (native_coin_bid.amount.u128() as f64 * COMMISSION) as u128,
+                    native_coin_bid.clone().denom,
+                );
+
+                let mut total_commission = commission.amount;
+                if address_bid_info.is_some() {
+                    total_commission += address_bid_info.unwrap().commission.amount
+                }
+
                 STATE.save(
                     deps.storage,
                     info.sender.to_string(),
                     &State {
                         address: info.sender.clone(),
                         bid: Coin::new(total_address_bid.u128(), ATOM),
+                        commission: Coin::new(total_commission.u128(), ATOM),
                     },
                 )?;
 
@@ -135,8 +147,25 @@ pub mod exec {
                     &State {
                         address: info.sender.clone(),
                         bid: Coin::new(total_address_bid.u128(), ATOM),
+                        commission: Coin::new(total_commission.u128(), ATOM),
                     },
                 )?;
+
+                resp = resp
+                    .add_attribute("action", "bid")
+                    .add_attribute("sender", info.sender.as_str())
+                    .add_attribute(HIGHEST_BID_KEY, highest_bid_info.bid.to_string());
+
+                if commission.amount > Uint128::new(0) {
+                    let bank_msg = BankMsg::Send {
+                        to_address: owner.to_string(),
+                        amount: [commission.clone()].to_vec(),
+                    };
+
+                    Ok(resp.add_message(bank_msg))
+                } else {
+                    Ok(resp)
+                }
             } else {
                 return Err(ContractError::InsufficientBid {
                     bid: total_address_bid.to_string(),
@@ -147,13 +176,6 @@ pub mod exec {
         } else {
             return Err(ContractError::IncorrectBid {}.into());
         }
-
-        resp = resp
-            .add_attribute("action", "bid")
-            .add_attribute("sender", info.sender.as_str())
-            .add_attribute(HIGHEST_BID_KEY, highest_bid_info.bid.to_string());
-
-        Ok(resp)
     }
 
     pub fn close(deps: DepsMut, _env: Env, info: MessageInfo) -> Result<Response, ContractError> {
@@ -178,6 +200,7 @@ pub mod exec {
             &State {
                 address: highest_bid_info.address,
                 bid: highest_bid_info.bid.clone(),
+                commission: highest_bid_info.commission.clone(),
             },
         )?;
 
@@ -186,9 +209,13 @@ pub mod exec {
             .add_attribute("sender", info.sender.as_str());
 
         if highest_bid_info.bid.amount > Uint128::new(0) {
+            let to_be_paid = Coin::new(
+                highest_bid_info.bid.amount.u128() - highest_bid_info.commission.amount.u128(),
+                highest_bid_info.bid.denom,
+            );
             let bank_msg = BankMsg::Send {
                 to_address: owner.to_string(),
-                amount: [highest_bid_info.bid.clone()].to_vec(),
+                amount: [to_be_paid.clone()].to_vec(),
             };
             Ok(resp.add_message(bank_msg))
         } else {
@@ -214,10 +241,16 @@ pub mod exec {
         let address_bid_info = STATE.may_load(deps.storage, info.sender.to_string())?;
 
         if address_bid_info.is_some() {
+            let address_bid_info = address_bid_info.unwrap();
             let receiver = receiver.unwrap_or(info.sender.to_string());
+            let to_be_returned = Coin::new(
+                address_bid_info.bid.amount.u128() - address_bid_info.commission.amount.u128(),
+                address_bid_info.bid.denom,
+            );
+
             let bank_msg = BankMsg::Send {
                 to_address: receiver,
-                amount: [address_bid_info.unwrap().bid].to_vec(),
+                amount: [to_be_returned].to_vec(),
             };
 
             let resp = Response::new()

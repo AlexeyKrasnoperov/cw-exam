@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct State {
     pub address: Addr,
     pub bid: Coin,
+    pub commission: Coin,
 }
 
 pub const STATE: Map<String, State> = Map::new("state");

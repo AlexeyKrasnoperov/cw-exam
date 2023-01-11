@@ -277,7 +277,7 @@ fn successul_scenario() {
     let mut app = App::new(|router, _api, storage| {
         router
             .bank
-            .init_balance(storage, &sender1, coins(10, ATOM))
+            .init_balance(storage, &sender1, coins(17, ATOM))
             .unwrap();
 
         router
@@ -305,13 +305,15 @@ fn successul_scenario() {
 
     contract.bid(&mut app, &sender3, &[Coin::new(1, ATOM)]).unwrap();
     contract.bid(&mut app, &sender1, &[Coin::new(5, ATOM)]).unwrap();
-    contract.bid(&mut app, &sender2, &[Coin::new(6, ATOM)]).unwrap();
-    contract.bid(&mut app, &sender1, &[Coin::new(2, ATOM)]).unwrap();
+    contract.bid(&mut app, &sender2, &[Coin::new(10, ATOM)]).unwrap();
+    assert_eq!(app.wrap().query_all_balances(owner.clone()).unwrap(), &[Coin::new(1, ATOM)]);
+    contract.bid(&mut app, &sender1, &[Coin::new(10, ATOM)]).unwrap();
+    assert_eq!(app.wrap().query_all_balances(owner.clone()).unwrap(), &[Coin::new(2, ATOM)]);
 
     contract.close(&mut app, &owner).unwrap();
 
     let highest_bid = contract.query_highest_bid(&app).unwrap();
-    assert_eq!(highest_bid.bid, Coin::new(7, ATOM));
+    assert_eq!(highest_bid.bid, Coin::new(15, ATOM));
     assert_eq!(highest_bid.address, sender1);
 
     let err = contract.bid(&mut app, &sender1, &[Coin::new(2, ATOM)]).unwrap_err();
@@ -322,14 +324,14 @@ fn successul_scenario() {
     );
 
     let highest_bid = contract.query_highest_bid(&app).unwrap();
-    assert_eq!(highest_bid.bid, Coin::new(7, ATOM));
+    assert_eq!(highest_bid.bid, Coin::new(15, ATOM));
     assert_eq!(highest_bid.address, sender1);
 
     let winner = contract.query_winner(&app).unwrap();
-    assert_eq!(winner.bid, Coin::new(7, ATOM));
+    assert_eq!(winner.bid, Coin::new(15, ATOM));
     assert_eq!(winner.address, sender1);
 
-    assert_eq!(app.wrap().query_all_balances(owner.clone()).unwrap(), &[Coin::new(7, ATOM)]);
+    assert_eq!(app.wrap().query_all_balances(owner.clone()).unwrap(), &[Coin::new(16, ATOM)]);
     
     let err = contract.retract(&mut app, &sender1, None).unwrap_err();
     assert_eq!(
@@ -338,7 +340,7 @@ fn successul_scenario() {
     );
 
     contract.retract(&mut app, &sender2, None).unwrap();
-    assert_eq!(app.wrap().query_all_balances(sender2.clone()).unwrap(), &[Coin::new(10, ATOM)]);
+    assert_eq!(app.wrap().query_all_balances(sender2.clone()).unwrap(), &[Coin::new(9, ATOM)]);
 
     contract.retract(&mut app, &sender3, Some(sender4.to_string())).unwrap();
     assert_eq!(app.wrap().query_all_balances(sender4.clone()).unwrap(), &[Coin::new(1, ATOM)]);
@@ -432,5 +434,3 @@ fn custom_owner() {
 
     contract.close(&mut app, &custom_owner).unwrap();
 }
-
-// TODO: commissions
