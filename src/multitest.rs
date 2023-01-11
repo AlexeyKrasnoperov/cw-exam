@@ -25,11 +25,12 @@ impl BiddingContract {
         sender: &Addr,
         admin: Option<&Addr>,
         label: &str,
+        owner: Option<Addr>,
     ) -> StdResult<BiddingContract> {
         app.instantiate_contract(
             code_id,
             sender.clone(),
-            &InstantiateMsg { owner: None },
+            &InstantiateMsg { owner },
             &[],
             label,
             admin.map(Addr::to_string),

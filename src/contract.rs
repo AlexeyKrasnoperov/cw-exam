@@ -84,7 +84,7 @@ pub mod query {
 }
 
 pub mod exec {
-    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response};
+    use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, Uint128};
 
     use crate::{
         error::ContractError,
@@ -181,20 +181,27 @@ pub mod exec {
             },
         )?;
 
-        let bank_msg = BankMsg::Send {
-            to_address: owner.to_string(),
-            amount: [highest_bid_info.bid.clone()].to_vec(),
-        };
-
         let resp = Response::new()
-            .add_message(bank_msg)
             .add_attribute("action", "close")
             .add_attribute("sender", info.sender.as_str());
 
-        Ok(resp)
+        if highest_bid_info.bid.amount > Uint128::new(0) {
+            let bank_msg = BankMsg::Send {
+                to_address: owner.to_string(),
+                amount: [highest_bid_info.bid.clone()].to_vec(),
+            };
+            Ok(resp.add_message(bank_msg))
+        } else {
+            Ok(resp)
+        }
     }
 
-    pub fn retract(deps: DepsMut, _env: Env, info: MessageInfo, receiver: Option<String>) -> Result<Response, ContractError> {
+    pub fn retract(
+        deps: DepsMut,
+        _env: Env,
+        info: MessageInfo,
+        receiver: Option<String>,
+    ) -> Result<Response, ContractError> {
         let winner = STATE.may_load(deps.storage, WINNER_KEY.to_string())?;
         if winner.is_none() {
             return Err(ContractError::BiddingNotClosed {});

@@ -27,6 +27,7 @@ fn query_highest_bid_no_bids() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -49,6 +50,7 @@ fn query_address_bid_no_bids() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -70,6 +72,7 @@ fn query_winner_no_bids() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -94,6 +97,7 @@ fn zero_bid() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -131,6 +135,7 @@ fn low_bid() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -164,6 +169,7 @@ fn bid() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -201,6 +207,7 @@ fn successful_bid_after_losing() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -240,6 +247,7 @@ fn unsuccessful_bid_after_losing() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -291,6 +299,7 @@ fn successul_scenario() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -357,6 +366,7 @@ fn unauthorized_close() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -382,6 +392,7 @@ fn owner_cannot_bid() {
         &owner,
         None,
         "Bidding Contract",
+        None
     )
     .unwrap();
 
@@ -393,5 +404,33 @@ fn owner_cannot_bid() {
     );
 }
 
+#[test]
+fn custom_owner() {
+    let mut app = App::default();
+
+    let contract_id = app.store_code(bidding_contract());
+
+    let owner = Addr::unchecked("owner");
+    let custom_owner = Addr::unchecked("custom_owner");
+
+    let contract = BiddingContract::instantiate(
+        &mut app,
+        contract_id,
+        &owner,
+        None,
+        "Bidding Contract",
+        Some(custom_owner.clone())
+    )
+    .unwrap();
+
+    let err = contract.close(&mut app, &owner).unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::Unauthorized { owner: custom_owner.to_string() }
+    );
+
+    contract.close(&mut app, &custom_owner).unwrap();
+}
+
 // TODO: commissions
-// TODO: Custom owner
